@@ -1,0 +1,8 @@
+# Python
+__pycache__/
+
+# Virtual environments
+.venv/
+
+# Linters / formatters
+.ruff_cache/
