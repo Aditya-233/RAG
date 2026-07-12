@@ -1,103 +1,230 @@
-# R.A.G. — Repository Architecture & Graph Engine
+# R.A.G. — Repository Architecture & Graph
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://www.python.org/)
 [![Dependency Free](https://img.shields.io/badge/Dependencies-Zero-brightgreen)](#)
 [![Systems Coding](https://img.shields.io/badge/Category-Systems_Programming-orange)](#)
 [![License](https://img.shields.io/badge/License-MIT-purple)](#)
 
-A pure Python, zero-dependency implementation of the Git core version control mechanics from first principles. **R.A.G.** recreates the internal workings of modern version control: content-addressable storage, a staging index, state snapshots, branch reference tracking, and a Directed Acyclic Graph (DAG) commit history.
-
-This project is a systems-level exploration of how Git works beneath the CLI abstraction, demonstrating efficient filesystem manipulation, data serialization, hashing, and graph theory.
+A pure Python, zero-dependency implementation of the core mechanics behind Git, built entirely from first principles. **R.A.G.** demonstrates how modern version control systems implement content-addressable storage, staging, immutable snapshots, and commit graphs without relying on external libraries.
 
 ---
 
-## ⚙️ Core Architecture & Concept Map
+# ⚙️ Core Architecture
 
-Every file tracked by R.A.G. transitions through a deterministic state machine, moving from mutable workspace files to immutable graph nodes:
+Every tracked file moves through a deterministic pipeline before becoming part of repository history.
 
 ```mermaid
 graph TD
-    WD["📂 Working Directory (Mutable Workspace)"] -->|python main.py add| Staging["📄 Staging Index (.rag/index)"]
-    Staging -->|python main.py commit| Objects["📦 Object Database (.rag/objects)"]
+    WD["📂 Working Directory"] -->|python rag.py add| INDEX["📄 Staging Index (.rag/index)"]
+    INDEX -->|python rag.py commit| OBJECTS["📦 Object Database (.rag/objects)"]
 
-    subgraph Objects [Object Store - Content-Addressable Graph]
-        Blob["📄 Blobs (Raw compressed data)"]
-        Tree["🌳 Trees (Directory nodes & metadata)"]
-        Commit["💬 Commits (Graph nodes containing author, message, parent pointers)"]
+    subgraph STORE [Content Addressable Storage]
+        BLOB["📄 Blob Objects"]
+        TREE["🌳 Tree Objects"]
+        COMMIT["💬 Commit Objects"]
     end
 
-    Commit -->|Linked via parent SHA-1 hashes| DAG["🔗 Commit Directed Acyclic Graph (DAG)"]
-    Refs["🚩 Branch References (HEAD / main)"] -->|Points to| Commit
-    DAG -->|python main.py checkout| WD
+    OBJECTS --> STORE
+    COMMIT -->|Parent SHA-1| DAG["🔗 Commit DAG"]
+    REFS["🚩 HEAD / main"] --> COMMIT
 ```
 
-### Key Subsystems:
+---
 
-1. **Content-Addressable Storage (CAS)**: Files are stored as objects keyed by their SHA-1 checksum. If two files have identical content, they point to the same object, optimizing storage.
-2. **Object Compression**: Objects are compressed using Python's standard `zlib` compression library before writing to disk, matching production Git mechanics.
-3. **Staging Area (Index)**: A state cache reflecting what _will_ be in the next commit, keeping track of path names, SHA-1 hashes, and modified times.
-4. **Commit DAG Traversal**: A Directed Acyclic Graph structure allowing linear historical rollbacks (checkout) and historical log visualization.
+# 📈 Performance Characteristics
+
+| Operation               | Complexity                           |
+| ----------------------- | ------------------------------------ |
+| `init`                  | **O(1)**                             |
+| `status`                | **O(N)**                             |
+| `add` (initial)         | **O(N)**                             |
+| `add` (unchanged files) | **Near O(1)**                        |
+| `commit`                | **O(1)** relative to repository size |
 
 ---
 
-## 📈 Performance & Scaling Metrics
+# 🚀 Cold-Disk Benchmark Results
 
-The engine includes a benchmarking suite that measures cold-disk filesystem operations after dropping OS page caches. This shows how R.A.G. scales with repository file count:
+Benchmarks were executed on **Arch Linux** using `benchmark_rag.py` with **OS page cache dropped before every operation**, measuring true filesystem performance rather than warm-cache execution.
 
-| Repository Scale | `add` Latency | `commit` Latency | `status` Latency | `diff` Latency |
-| :--------------- | :-----------: | :--------------: | :--------------: | :------------: |
-| **100 Files**    |   27.92 ms    |     2.25 ms      |     11.66 ms     |    19.56 ms    |
-| **500 Files**    |   127.34 ms   |     4.87 ms      |     51.74 ms     |    84.00 ms    |
-| **1,000 Files**  |   268.22 ms   |     8.12 ms      |     96.70 ms     |   151.96 ms    |
+| Repository Scale |         `add` |    `commit` |     `status` |
+| ---------------: | ------------: | ----------: | -----------: |
+|    **100 Files** |  **33.69 ms** | **2.30 ms** |  **3.59 ms** |
+|    **500 Files** | **133.13 ms** | **6.05 ms** | **13.41 ms** |
+|  **1,000 Files** | **283.41 ms** | **8.39 ms** | **26.53 ms** |
 
-### 🔍 Engineering Insights:
+### Peak Memory Usage
 
-- **Linear Scaling on Adds**: Staging operations scale linearly $O(N)$ with the number of files since each must be read, hashed, compressed, and written to disk.
-- **Constant-time Commits**: Generating a commit is extremely fast $O(1)$ relative to repo size, as it only writes tree and commit metadata objects once the index has been written.
-- **Diff & Status Bottlenecks**: Computing status and diffs requires heavy disk-I/O and string operations, demonstrating the typical systems trade-off between memory footprint and execution speed.
-
----
-
-## 🛠️ Feature Set
-
-- **Repository Initialization**: Creating `.rag/` directories and initial index structures.
-- **Staging Engine**: Hashing and index caching (`add`).
-- **Immutable Commits**: Writing directory snapshot trees and commit metadata.
-- **Branch Management**: Pointer tracking for active branch and checkout capabilities.
-- **Unified Diff Engine**: Generating clear, standard diff views between staging and working directory or commits.
-- **Ignore Parsing**: Honoring `.gitignore` path glob matching patterns.
+| Repository Scale |  `init` |   `add` | `commit` | `status` |
+| ---------------: | ------: | ------: | -------: | -------: |
+|    **100 Files** | 0.13 MB | 0.48 MB |  0.32 MB |  0.17 MB |
+|    **500 Files** | 0.13 MB | 0.82 MB |  0.46 MB |  0.42 MB |
+|  **1,000 Files** | 0.13 MB | 1.29 MB |  0.65 MB |  0.79 MB |
 
 ---
 
-## 💻 CLI Commands
+# 🧩 Architecture Overview
 
-R.A.G. is fully controllable via the command line interface:
+## Content Addressable Storage (CAS)
+
+Every file is hashed using SHA-1 before storage.
+
+Instead of saving files by filename, objects are stored by their content hash.
+
+This enables:
+
+- Automatic deduplication
+- Immutable object storage
+- Efficient object lookup
+
+---
+
+## Blob Objects
+
+Raw file contents are compressed using Python's built-in `zlib` module before being written into `.rag/objects`.
+
+Files with identical contents share the same blob object.
+
+---
+
+## Tree Objects
+
+Tree objects represent directory structures.
+
+Each commit references a tree, which recursively references blobs and other trees, creating a complete snapshot of the repository.
+
+---
+
+## Commit Objects
+
+Each commit stores:
+
+- Root tree SHA
+- Parent commit SHA
+- Commit message
+- Timestamp
+- Author metadata
+
+Commits form a Directed Acyclic Graph (DAG), mirroring Git's internal history representation.
+
+---
+
+## Staging Index
+
+The staging index records the exact contents that will become the next commit.
+
+Each tracked entry stores:
+
+- File path
+- SHA-1 hash
+- File size
+- Last modification time (`mtime`)
+
+This metadata cache enables rapid change detection without repeatedly reading unchanged files.
+
+---
+
+# 📂 Repository Structure
+
+```text
+.
+├── rag.py
+├── benchmark_rag.py
+├── README.md
+└── .rag
+    ├── HEAD
+    ├── index
+    ├── refs
+    └── objects
+```
+
+---
+
+# ✨ Features
+
+- Repository initialization
+- Content-addressable object storage
+- SHA-1 object hashing
+- Zlib object compression
+- Metadata-aware staging index
+- Immutable commits
+- Fast repository status detection
+- `.gitignore` pattern support
+- Zero external dependencies
+
+---
+
+# 💻 Command Line Interface
+
+Initialize a repository:
 
 ```bash
-# Initialize a new repository
-python main.py init
+python rag.py init
+```
 
-# Stage modified/new files
-python main.py add <file-path-or-dot>
+Stage files:
 
-# View modified files and unstaged changes
-python main.py status
+```bash
+python rag.py add <path>
 
-# Commit changes with a message
-python main.py commit -m "Your commit message"
+python rag.py add .
+```
 
-# Display commit log traversal
-python main.py log
+Check repository status:
 
-# Revert working directory to a previous state
-python main.py checkout <commit-sha-or-branch>
+```bash
+python rag.py status
+```
+
+Create a commit:
+
+```bash
+python rag.py commit -m "Commit message"
 ```
 
 ---
 
-## 💼 Skills Demonstrated
+# 🧠 Concepts Demonstrated
 
-- **Low-Level Systems Programming**: Managing raw file writes, directories, hashing (`hashlib`), and compression (`zlib`) without framework overhead.
-- **Data Structure Design**: Building tree structures, staging schemas, and managing serialization of metadata.
-- **Graph Theory**: Traversing a Directed Acyclic Graph to reconstruct historical states and resolve parents/commits.
-- **Performance Diagnostics**: Writing benchmarks to measure system limits, disk-I/O speed, and execution times under stress.
+This project implements many of the foundational ideas behind Git:
+
+- Content-addressable storage
+- Immutable object model
+- SHA-1 hashing
+- Filesystem traversal
+- Object serialization
+- Zlib compression
+- Commit graph construction
+- Metadata caching
+- Index-based staging
+- Snapshot-oriented version control
+
+---
+
+# 📊 Benchmark Methodology
+
+The benchmark suite measures **cold-disk performance**, ensuring results reflect actual storage performance rather than operating system page cache effects.
+
+Each benchmark:
+
+1. Creates a fresh repository.
+2. Generates repositories containing **100**, **500**, and **1,000** files (64 KB each).
+3. Drops the Linux page cache before every measured operation.
+4. Records execution latency and peak memory usage.
+
+This methodology provides reproducible, filesystem-bound performance measurements.
+
+---
+
+# 🎯 Project Goals
+
+R.A.G. is designed as an educational implementation rather than a replacement for Git.
+
+Its objectives are to demonstrate:
+
+- content-addressable storage
+- immutable snapshots
+- filesystem-efficient version control
+- commit graph construction
+- metadata-driven caching
+- systems programming techniques using only the Python standard library
