@@ -63,67 +63,6 @@ Benchmarks were executed on **Arch Linux** using `benchmark_rag.py` with **OS pa
 
 ---
 
-# 🧩 Architecture Overview
-
-## Content Addressable Storage (CAS)
-
-Every file is hashed using SHA-1 before storage.
-
-Instead of saving files by filename, objects are stored by their content hash.
-
-This enables:
-
-- Automatic deduplication
-- Immutable object storage
-- Efficient object lookup
-
----
-
-## Blob Objects
-
-Raw file contents are compressed using Python's built-in `zlib` module before being written into `.rag/objects`.
-
-Files with identical contents share the same blob object.
-
----
-
-## Tree Objects
-
-Tree objects represent directory structures.
-
-Each commit references a tree, which recursively references blobs and other trees, creating a complete snapshot of the repository.
-
----
-
-## Commit Objects
-
-Each commit stores:
-
-- Root tree SHA
-- Parent commit SHA
-- Commit message
-- Timestamp
-- Author metadata
-
-Commits form a Directed Acyclic Graph (DAG), mirroring Git's internal history representation.
-
----
-
-## Staging Index
-
-The staging index records the exact contents that will become the next commit.
-
-Each tracked entry stores:
-
-- File path
-- SHA-1 hash
-- File size
-- Last modification time (`mtime`)
-
-This metadata cache enables rapid change detection without repeatedly reading unchanged files.
-
----
-
 # 📂 Repository Structure
 
 ```text
@@ -137,20 +76,6 @@ This metadata cache enables rapid change detection without repeatedly reading un
     ├── refs
     └── objects
 ```
-
----
-
-# ✨ Features
-
-- Repository initialization
-- Content-addressable object storage
-- SHA-1 object hashing
-- Zlib object compression
-- Metadata-aware staging index
-- Immutable commits
-- Fast repository status detection
-- `.gitignore` pattern support
-- Zero external dependencies
 
 ---
 
@@ -181,50 +106,3 @@ Create a commit:
 ```bash
 python rag.py commit -m "Commit message"
 ```
-
----
-
-# 🧠 Concepts Demonstrated
-
-This project implements many of the foundational ideas behind Git:
-
-- Content-addressable storage
-- Immutable object model
-- SHA-1 hashing
-- Filesystem traversal
-- Object serialization
-- Zlib compression
-- Commit graph construction
-- Metadata caching
-- Index-based staging
-- Snapshot-oriented version control
-
----
-
-# 📊 Benchmark Methodology
-
-The benchmark suite measures **cold-disk performance**, ensuring results reflect actual storage performance rather than operating system page cache effects.
-
-Each benchmark:
-
-1. Creates a fresh repository.
-2. Generates repositories containing **100**, **500**, and **1,000** files (64 KB each).
-3. Drops the Linux page cache before every measured operation.
-4. Records execution latency and peak memory usage.
-
-This methodology provides reproducible, filesystem-bound performance measurements.
-
----
-
-# 🎯 Project Goals
-
-R.A.G. is designed as an educational implementation rather than a replacement for Git.
-
-Its objectives are to demonstrate:
-
-- content-addressable storage
-- immutable snapshots
-- filesystem-efficient version control
-- commit graph construction
-- metadata-driven caching
-- systems programming techniques using only the Python standard library
